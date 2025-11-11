@@ -28,5 +28,5 @@ export const QuestionsSchema = z
     path: ["totalQuestions"],
   });
 
-export type QuestionsType = z.Infer<typeof QuestionsSchema>;
+export type QuestionsListType = z.Infer<typeof QuestionsSchema>;
 export type QuestionType = z.Infer<typeof QuestionsSchema>;
