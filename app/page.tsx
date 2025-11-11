@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ModeToggleTheme } from "@/components/theme/mode-toggle-theme";
 import { Loader, Upload, CheckCircle2, Brain, X } from "lucide-react";
-import { fileToBase64 } from "@/lib/pdf-utils";
+
 import { Button } from "@/components/ui/button";
 import { QuestionsListType } from "@/lib/types/questions.type";
 import { Question } from "@/components/question";
@@ -44,22 +44,14 @@ export default function Home() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      let pdfBase64 = "";
+      if (!file) return;
 
-      if (file) {
-        pdfBase64 = await fileToBase64(file);
-      }
-
-      if (pdfBase64.length === 0) return;
+      const formData = new FormData();
+      formData.append("file", file);
 
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          pdfBase64,
-        }),
+        body: formData,
       });
 
       const data: { result: QuestionsListType } = await response.json();

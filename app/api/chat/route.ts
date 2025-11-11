@@ -2,23 +2,26 @@ import { QuestionsSchema } from "@/lib/types/questions.type";
 import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 
-interface ChatRequest {
-  numQuestions?: number;
-  topicHint?: string;
-  difficulty?: "easy" | "medium" | "hard";
-  language?: string;
-  pdfBase64: string;
-}
-
 export async function POST(req: Request) {
   try {
-    const {
-      numQuestions = 10,
-      topicHint = "general",
-      difficulty = "medium",
-      language = "es-AR",
-      pdfBase64,
-    }: ChatRequest = await req.json();
+    const formData = await req.formData();
+
+    const file = formData.get("file") as File | null;
+
+    const numQuestions = Number(formData.get("numQuestions")) || 20;
+    const topicHint = (formData.get("topicHint") as string) || "general";
+    const difficulty =
+      (formData.get("difficulty") as "easy" | "medium" | "hard") || "medium";
+    const language = (formData.get("language") as string) || "es-AR";
+
+    if (!file) {
+      return Response.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    // Convert file to base64
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const pdfBase64 = buffer.toString("base64");
 
     const { object } = await generateObject({
       model: google("gemini-2.5-flash"),
