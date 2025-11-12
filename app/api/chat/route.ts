@@ -1,25 +1,42 @@
 import { QuestionsSchema } from "@/lib/types/questions.type";
 import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
+import { del } from "@vercel/blob";
+
+interface ChatRequest {
+  pdfUrl: string;
+  numQuestions?: number;
+  topicHint?: string;
+  difficulty?: "easy" | "medium" | "hard";
+  language?: string;
+}
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
+    const {
+      pdfUrl,
+      numQuestions = 20,
+      topicHint = "general",
+      difficulty = "medium",
+      language = "es-AR",
+    }: ChatRequest = await req.json();
 
-    const file = formData.get("file") as File | null;
-
-    const numQuestions = Number(formData.get("numQuestions")) || 20;
-    const topicHint = (formData.get("topicHint") as string) || "general";
-    const difficulty =
-      (formData.get("difficulty") as "easy" | "medium" | "hard") || "medium";
-    const language = (formData.get("language") as string) || "es-AR";
-
-    if (!file) {
-      return Response.json({ error: "No file provided" }, { status: 400 });
+    if (!pdfUrl) {
+      return Response.json({ error: "No PDF URL provided" }, { status: 400 });
     }
 
-    // Convert file to base64
-    const arrayBuffer = await file.arrayBuffer();
+    // Download PDF from Vercel Blob
+    const pdfResponse = await fetch(pdfUrl);
+
+    if (!pdfResponse.ok) {
+      return Response.json(
+        { error: "Failed to download PDF from blob storage" },
+        { status: 500 },
+      );
+    }
+
+    // Convert PDF to base64
+    const arrayBuffer = await pdfResponse.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const pdfBase64 = buffer.toString("base64");
 
@@ -86,6 +103,16 @@ export async function POST(req: Request) {
         `]` +
         `}`,
     });
+
+    // Optional: Delete the blob after processing to save storage
+    // Uncomment if you want to clean up blobs after processing
+    try {
+      await del(pdfUrl);
+      console.log("Blob deleted successfully:", pdfUrl);
+    } catch (error) {
+      console.error("Error deleting blob:", error);
+      // Don't fail the request if deletion fails
+    }
 
     return Response.json({ result: object });
   } catch (error) {

@@ -3,10 +3,10 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ModeToggleTheme } from "@/components/theme/mode-toggle-theme";
 import { Loader, Upload, CheckCircle2, Brain, X } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { QuestionsListType } from "@/lib/types/questions.type";
 import { Question } from "@/components/question";
+import { upload } from "@vercel/blob/client";
 
 import {
   Dialog,
@@ -21,6 +21,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const inputFileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | undefined>();
+  const [error, setError] = useState<string>("");
 
   const { showCorrectAnswers, grade, setState, topic, questions, description } =
     useGlobalStore();
@@ -42,16 +43,27 @@ export default function Home() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setError("");
+
+    if (!file) return;
+
     setIsLoading(true);
     try {
-      if (!file) return;
+      // First, upload PDF to Vercel Blob
+      const newBlob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/pdf/upload",
+      });
 
-      const formData = new FormData();
-      formData.append("file", file);
-
+      // Then, send the blob URL to process
       const response = await fetch("/api/chat", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pdfUrl: newBlob.url,
+        }),
       });
 
       const data: { result: QuestionsListType } = await response.json();
@@ -78,7 +90,12 @@ export default function Home() {
         inputFileRef.current.value = "";
       }
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Error al procesar el PDF. Por favor intenta de nuevo.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -148,6 +165,7 @@ export default function Home() {
                     const selectedFile = e.target.files?.[0];
                     if (selectedFile) {
                       setFile(selectedFile);
+                      setError("");
                     }
                   }}
                 />
@@ -210,6 +228,14 @@ export default function Home() {
                         </p>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="text-center p-4 bg-destructive/10 border border-destructive/50 rounded-lg">
+                    <p className="text-sm text-destructive font-medium">
+                      {error}
+                    </p>
                   </div>
                 )}
 
