@@ -82,6 +82,7 @@ export const useGlobalStore = create<GlobalState>()(
     {
       name: "questions-store",
       storage: createJSONStorage(() => localStorage),
+      skipHydration: true,
     },
   ),
 );

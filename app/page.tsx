@@ -43,6 +43,8 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
+    // Hidratar el store manualmente para evitar errores de SSR
+    useGlobalStore.persist.rehydrate();
   }, []);
 
   useEffect(() => {
