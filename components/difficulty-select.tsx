@@ -19,7 +19,7 @@ export function DifficultySelect() {
       onValueChange={(value) => {
         setDifficulty(value as "easy" | "medium" | "hard");
       }}
-      value={difficulty}
+      value={difficulty ?? "medium"}
     >
       <SelectTrigger className="w-full">
         <SelectValue placeholder="Dificultad" />

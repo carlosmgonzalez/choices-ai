@@ -19,7 +19,7 @@ export function NumQuestionsSelect() {
       onValueChange={(value) => {
         setNumQuestions(parseInt(value));
       }}
-      value={numQuestions.toString()}
+      value={numQuestions?.toString() ?? "20"}
     >
       <SelectTrigger className="w-full">
         <SelectValue placeholder="Número de preguntas" />

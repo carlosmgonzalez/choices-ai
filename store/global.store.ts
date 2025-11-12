@@ -64,12 +64,19 @@ export const useGlobalStore = create<GlobalState>()(
           }),
         }));
       },
-      showCorrectAnswers: true,
+      showCorrectAnswers: false,
       grade: () => {
-        const totalQuestions = get().totalQuestions;
+        const state = get();
+        const totalQuestions = state.totalQuestions || 0;
+        const questions = state.questions || [];
+
+        if (totalQuestions === 0 || questions.length === 0) {
+          return "0 / 0";
+        }
+
         let totalCorrectAnswers = 0;
-        get().questions.map((a) => {
-          if (a.userAnswer === a.correctChoice) {
+        questions.forEach((q) => {
+          if (q.userAnswer === q.correctChoice) {
             totalCorrectAnswers++;
           }
         });

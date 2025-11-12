@@ -21,6 +21,7 @@ import { NumQuestionsSelect } from "@/components/num-questions-select";
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const inputFileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | undefined>();
   const [error, setError] = useState<string>("");
@@ -44,7 +45,14 @@ export default function Home() {
   useEffect(() => {
     setMounted(true);
     // Hidratar el store manualmente para evitar errores de SSR
+    const unsubHydrate = useGlobalStore.persist.onFinishHydration(() => {
+      setHydrated(true);
+    });
     useGlobalStore.persist.rehydrate();
+
+    return () => {
+      unsubHydrate();
+    };
   }, []);
 
   useEffect(() => {
@@ -113,11 +121,16 @@ export default function Home() {
     }
   }
 
+  // No renderizar hasta que el store esté hidratado
+  if (!hydrated) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen w-full">
       {/* Header */}
       <header className="fixed flex flex-row items-center top-0 right-0 p-4 z-50 gap-4">
-        {mounted && showCorrectAnswers && (
+        {mounted && showCorrectAnswers && questions.length > 0 && (
           <Button variant="outline" className="m-0">
             <p className="font-semibold">{grade()}</p>
           </Button>
