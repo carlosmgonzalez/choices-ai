@@ -18,9 +18,13 @@ interface GlobalState {
   description: string;
   totalQuestions: number;
   questions: Question[];
+  difficulty: "easy" | "medium" | "hard";
+  numQuestions: number;
   setAnswerQuestion: (questionId: string, answare: string) => void;
   showCorrectAnswers: boolean;
   grade: () => string;
+  setDifficulty: (difficulty: "easy" | "medium" | "hard") => void;
+  setNumQuestions: (numQuestions: number) => void;
   setState: (
     partial: Partial<
       Omit<
@@ -30,6 +34,8 @@ interface GlobalState {
         | "toggleShowCorrectAnsware"
         | "grade"
         | "setState"
+        | "setDifficulty"
+        | "setNumQuestions"
       >
     >,
   ) => void;
@@ -42,6 +48,8 @@ export const useGlobalStore = create<GlobalState>()(
       description: "",
       totalQuestions: 0,
       questions: [],
+      difficulty: "medium",
+      numQuestions: 20,
       setAnswerQuestion: (questionId, answare) => {
         set((state) => ({
           questions: state.questions.map((question) => {
@@ -67,6 +75,8 @@ export const useGlobalStore = create<GlobalState>()(
         });
         return `${totalCorrectAnswers} / ${totalQuestions}`;
       },
+      setDifficulty: (difficulty) => set({ difficulty }),
+      setNumQuestions: (numQuestions) => set({ numQuestions }),
       setState: (partial) => set(partial),
     }),
     {

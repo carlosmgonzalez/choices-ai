@@ -15,6 +15,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useGlobalStore } from "@/store/global.store";
+import { DifficultySelect } from "@/components/difficulty-select";
+import { NumQuestionsSelect } from "@/components/num-questions-select";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
@@ -23,8 +25,16 @@ export default function Home() {
   const [file, setFile] = useState<File | undefined>();
   const [error, setError] = useState<string>("");
 
-  const { showCorrectAnswers, grade, setState, topic, questions, description } =
-    useGlobalStore();
+  const {
+    showCorrectAnswers,
+    grade,
+    setState,
+    topic,
+    questions,
+    description,
+    difficulty,
+    numQuestions,
+  } = useGlobalStore();
 
   const previewUrl = useMemo(
     () => (file ? URL.createObjectURL(file) : null),
@@ -63,6 +73,8 @@ export default function Home() {
         },
         body: JSON.stringify({
           pdfUrl: newBlob.url,
+          difficulty,
+          numQuestions,
         }),
       });
 
@@ -82,8 +94,6 @@ export default function Home() {
           meta: question.meta,
         })),
       });
-
-      console.log(data.result);
 
       if (inputFileRef.current) {
         setFile(undefined);
@@ -113,15 +123,15 @@ export default function Home() {
         <ModeToggleTheme />
       </header>
 
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 pt-16 pb-12">
         {/* Hero Section - Solo se muestra si no hay preguntas */}
         {questions.length === 0 && (
           <div className="flex flex-col items-center justify-center min-h-[80vh] max-w-4xl mx-auto text-center space-y-8">
-            <div className="space-y-4">
-              <h1 className="text-2xl font-bold tracking-tight">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight">
                 Prepárate para tus exámenes
               </h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-muted-foreground max-w-2xl mx-auto">
                 Sube tu PDF y obtén preguntas de opción múltiple generadas
                 automáticamente para practicar
               </p>
@@ -129,24 +139,24 @@ export default function Home() {
 
             {/* Features */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl mt-12">
-              <div className="flex flex-col items-center space-y-2 p-6 rounded-lg border bg-card">
-                <Upload className="w-8 h-8 text-primary" />
+              <div className="flex flex-col items-center space-y-2 p-4 rounded-lg border bg-card">
+                <Upload className="w-6 h-6 text-primary" />
                 <h3>Sube tu PDF</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm font-light  text-muted-foreground">
                   Carga cualquier documento de estudio
                 </p>
               </div>
-              <div className="flex flex-col items-center space-y-2 p-6 rounded-lg border bg-card">
-                <Brain className="w-8 h-8 text-primary" />
+              <div className="flex flex-col items-center space-y-2 p-4 rounded-lg border bg-card">
+                <Brain className="w-6 h-6 text-primary" />
                 <h3>IA Genera Preguntas</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm font-light text-muted-foreground">
                   Preguntas inteligentes sobre el contenido
                 </p>
               </div>
-              <div className="flex flex-col items-center space-y-2 p-6 rounded-lg border bg-card">
-                <CheckCircle2 className="w-8 h-8 text-primary" />
+              <div className="flex flex-col items-center space-y-2 p-4 rounded-lg border bg-card">
+                <CheckCircle2 className="w-6 h-6 text-primary" />
                 <h3>Practica y Aprende</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm font-light  text-muted-foreground">
                   Responde y mejora tu conocimiento
                 </p>
               </div>
@@ -164,6 +174,14 @@ export default function Home() {
                   onChange={(e) => {
                     const selectedFile = e.target.files?.[0];
                     if (selectedFile) {
+                      if (selectedFile.size / (1024 * 1024) > 15) {
+                        setFile(undefined);
+                        setError("El PDF no puede pesar más de 15MB");
+                        if (inputFileRef.current) {
+                          inputFileRef.current.value = "";
+                        }
+                        return;
+                      }
                       setFile(selectedFile);
                       setError("");
                     }
@@ -226,6 +244,9 @@ export default function Home() {
                             ? "Haz clic para cambiar tu PDF"
                             : "Haz clic para subir tu PDF"}
                         </p>
+                        <p className="text-muted-foreground font-light text-sm">
+                          (Max 15MB)
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -239,6 +260,25 @@ export default function Home() {
                   </div>
                 )}
 
+                <div className="w-full space-y-4 border rounded-lg p-4 bg-card">
+                  <h3 className="text-sm font-semibold">
+                    Configuración de preguntas
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Dificultad
+                      </label>
+                      <DifficultySelect />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Número de preguntas
+                      </label>
+                      <NumQuestionsSelect />
+                    </div>
+                  </div>
+                </div>
                 <Button
                   type="submit"
                   className="w-full h-10 text-lg"
