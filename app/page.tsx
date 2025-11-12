@@ -17,6 +17,10 @@ import {
 import { useGlobalStore } from "@/store/global.store";
 import { DifficultySelect } from "@/components/difficulty-select";
 import { NumQuestionsSelect } from "@/components/num-questions-select";
+import {
+  ApiResponse,
+  isErrorResponse,
+} from "@/lib/types/error-res-questions.type";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +28,10 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const inputFileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | undefined>();
+  const [blobUrl, setBlobUrl] = useState<string | undefined>();
   const [error, setError] = useState<string>("");
+  const [errorType, setErrorType] = useState<string>("");
+  const [canRetry, setCanRetry] = useState(false);
 
   const {
     showCorrectAnswers,
@@ -64,16 +71,23 @@ export default function Home() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+    setErrorType("");
+    setCanRetry(false);
 
     if (!file) return;
 
     setIsLoading(true);
     try {
-      // First, upload PDF to Vercel Blob
-      const newBlob = await upload(file.name, file, {
-        access: "public",
-        handleUploadUrl: "/api/pdf/upload",
-      });
+      // Upload PDF to Vercel Blob only if not already uploaded
+      let pdfUrl = blobUrl;
+      if (!pdfUrl) {
+        const newBlob = await upload(file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/pdf/upload",
+        });
+        pdfUrl = newBlob.url;
+        setBlobUrl(pdfUrl);
+      }
 
       // Then, send the blob URL to process
       const response = await fetch("/api/chat", {
@@ -82,40 +96,57 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          pdfUrl: newBlob.url,
+          pdfUrl: pdfUrl,
           difficulty,
           numQuestions,
         }),
       });
 
-      const data: { result: QuestionsListType } = await response.json();
+      const data: ApiResponse<QuestionsListType> = await response.json();
+
+      if (isErrorResponse(data)) {
+        const errorTypeFromApi = data.error || "unknown";
+        const errorMessage = data.message || "Error al procesar el PDF";
+
+        setErrorType(errorTypeFromApi);
+        if (errorTypeFromApi === "ai_overloaded") {
+          setError(errorMessage);
+          setCanRetry(true);
+        } else if (errorTypeFromApi === "rate_limit") {
+          setError(errorMessage);
+          setCanRetry(true);
+        } else if (errorTypeFromApi === "pdf_error") {
+          setError(errorMessage);
+          setCanRetry(true);
+        } else {
+          setError(errorMessage);
+          setCanRetry(true);
+        }
+        return;
+      }
 
       setState({
-        topic: data.result.topic,
-        description: data.result.description,
-        totalQuestions: data.result.totalQuestions,
+        ...data.result,
         questions: data.result.questions.map((question) => ({
-          choices: question.choices,
-          explanation: question.explanation,
-          correctChoice: question.correctChoice,
-          id: question.id,
-          question: question.question,
+          ...question,
           userAnswer: undefined,
-          meta: question.meta,
         })),
       });
 
       if (inputFileRef.current) {
         setFile(undefined);
+        setBlobUrl(undefined);
         inputFileRef.current.value = "";
       }
     } catch (error) {
       console.error(error);
+      setErrorType("network_error");
       setError(
         error instanceof Error
-          ? error.message
-          : "Error al procesar el PDF. Por favor intenta de nuevo.",
+          ? `❌ ${error.message}`
+          : "❌ Error de conexión. Verifica tu conexión a internet e intenta de nuevo.",
       );
+      setCanRetry(true);
     } finally {
       setIsLoading(false);
     }
@@ -191,6 +222,7 @@ export default function Home() {
                     if (selectedFile) {
                       if (selectedFile.size / (1024 * 1024) > 15) {
                         setFile(undefined);
+                        setBlobUrl(undefined);
                         setError("El PDF no puede pesar más de 15MB");
                         if (inputFileRef.current) {
                           inputFileRef.current.value = "";
@@ -199,6 +231,8 @@ export default function Home() {
                       }
                       setFile(selectedFile);
                       setError("");
+                      setErrorType("");
+                      setCanRetry(false);
                     }
                   }}
                 />
@@ -208,8 +242,14 @@ export default function Home() {
                 {file ? (
                   <div className="relative flex flex-col gap-4 border-2 rounded-lg p-6 cursor-pointer bg-card">
                     <X
-                      className="absolute top-2 right-2"
-                      onClick={() => setFile(undefined)}
+                      className="absolute top-2 right-2 cursor-pointer hover:text-destructive"
+                      onClick={() => {
+                        setFile(undefined);
+                        setBlobUrl(undefined);
+                        setError("");
+                        setErrorType("");
+                        setCanRetry(false);
+                      }}
                     />
                     <div className="text-center">
                       <p>{file.name}</p>
@@ -268,10 +308,34 @@ export default function Home() {
                 )}
 
                 {error && (
-                  <div className="text-center p-4 bg-destructive/10 border border-destructive/50 rounded-lg">
+                  <div className="space-y-3 text-center p-4 bg-destructive/10 border border-destructive/50 rounded-lg">
                     <p className="text-sm text-destructive font-medium">
                       {error}
                     </p>
+                    {canRetry && (
+                      <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          size="sm"
+                          disabled={isLoading || !file}
+                        >
+                          {isLoading ? (
+                            <>
+                              <Loader className="animate-spin mr-2 h-4 w-4" />
+                              Reintentando...
+                            </>
+                          ) : (
+                            "🔄 Reintentar"
+                          )}
+                        </Button>
+                        {errorType === "ai_overloaded" && (
+                          <p className="text-xs text-muted-foreground">
+                            Sugerencia: Espera 1-2 minutos antes de reintentar
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -335,7 +399,6 @@ export default function Home() {
               <Button
                 onClick={() => {
                   setState({ showCorrectAnswers: !showCorrectAnswers });
-                  console.log("toggle");
                 }}
               >
                 {!showCorrectAnswers
@@ -353,6 +416,10 @@ export default function Home() {
                     totalQuestions: 0,
                   });
                   setFile(undefined);
+                  setBlobUrl(undefined);
+                  setError("");
+                  setErrorType("");
+                  setCanRetry(false);
                   if (inputFileRef.current) {
                     inputFileRef.current.value = "";
                   }

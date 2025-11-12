@@ -6,7 +6,6 @@ import { del } from "@vercel/blob";
 interface ChatRequest {
   pdfUrl: string;
   numQuestions?: number;
-  topicHint?: string;
   difficulty?: "easy" | "medium" | "hard";
   language?: string;
 }
@@ -16,7 +15,6 @@ export async function POST(req: Request) {
     const {
       pdfUrl,
       numQuestions = 20,
-      topicHint = "general",
       difficulty = "medium",
       language = "es-AR",
     }: ChatRequest = await req.json();
@@ -60,7 +58,7 @@ export async function POST(req: Request) {
         `Si la información no está en el PDF, responde con {"error":"insufficient_evidence"} y explica qué falta.` +
         `Tareas:` +
         `1. Lee y comprende el PDF.` +
-        `2. Genera preguntas de opción múltiple sobre ${topicHint}.` +
+        `2. Genera preguntas de opción múltiple sobre el pdf.` +
         `3. Cada pregunta debe:` +
         `* Tener 4 opciones (A–D) con solo 1 correcta.` +
         `* Evitar opciones tipo "Todas las anteriores" o "Ninguna de las anteriores".` +
@@ -71,7 +69,6 @@ export async function POST(req: Request) {
         `2. Entregar únicamente el JSON válido con el esquema de Output JSON (sin comentarios ni texto adicional).` +
         `Parámetros:` +
         `* numQuestions: ${numQuestions}` +
-        `* topicHint: "${topicHint}"` +
         `* difficulty: "${difficulty}" // easy|medium|hard` +
         `* language: "${language}" // es-AR, es-ES, en, etc.` +
         `Estilo de las preguntas:` +
@@ -117,9 +114,65 @@ export async function POST(req: Request) {
     return Response.json({ result: object });
   } catch (error) {
     console.error("Error in chat route:", error);
+
+    // Check if it's an AI model overload error
+    if (error instanceof Error) {
+      const errorMessage = error.message.toLowerCase();
+
+      // Google AI overloaded error
+      if (
+        errorMessage.includes("overloaded") ||
+        errorMessage.includes("503") ||
+        errorMessage.includes("unavailable")
+      ) {
+        return Response.json(
+          {
+            error: "ai_overloaded",
+            message:
+              "El servicio de IA está temporalmente sobrecargado. Por favor, intenta de nuevo en unos momentos.",
+            details: error.message,
+          },
+          { status: 503 },
+        );
+      }
+
+      // Rate limit error
+      if (
+        errorMessage.includes("rate limit") ||
+        errorMessage.includes("429") ||
+        errorMessage.includes("quota")
+      ) {
+        return Response.json(
+          {
+            error: "rate_limit",
+            message:
+              "Se ha excedido el límite de solicitudes. Por favor, espera un momento antes de intentar de nuevo.",
+            details: error.message,
+          },
+          { status: 429 },
+        );
+      }
+
+      // PDF processing error
+      if (errorMessage.includes("pdf") || errorMessage.includes("blob")) {
+        return Response.json(
+          {
+            error: "pdf_error",
+            message:
+              "Error al procesar el PDF. Asegúrate de que el archivo sea válido.",
+            details: error.message,
+          },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Generic error
     return Response.json(
       {
-        error: "Something went wrong",
+        error: "server_error",
+        message:
+          "Ocurrió un error al procesar tu solicitud. Por favor, intenta de nuevo.",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 },
