@@ -220,10 +220,10 @@ export default function Home() {
                   onChange={(e) => {
                     const selectedFile = e.target.files?.[0];
                     if (selectedFile) {
-                      if (selectedFile.size / (1024 * 1024) > 15) {
+                      if (selectedFile.size / (1024 * 1024) > 20) {
                         setFile(undefined);
                         setBlobUrl(undefined);
-                        setError("El PDF no puede pesar más de 15MB");
+                        setError("El PDF no puede pesar más de 20MB");
                         if (inputFileRef.current) {
                           inputFileRef.current.value = "";
                         }
@@ -300,7 +300,7 @@ export default function Home() {
                             : "Haz clic para subir tu PDF"}
                         </p>
                         <p className="text-muted-foreground font-light text-sm">
-                          (Max 15MB)
+                          (Max 20MB)
                         </p>
                       </div>
                     </div>
